@@ -1,21 +1,59 @@
 with Tokens; use Tokens;
 with Error_Reporter;
+with Ada.Characters.Handling;
+with Ada.Containers;
+with Ada.Strings;
+with Ada.Containers.Formal_Hashed_Maps;
+with Ada.Strings.Bounded;
+with Ada.Strings.Bounded.Hash;
 
 package body Scanners is
+
+   package Keyword_Strings is new Ada.Strings.Bounded.Generic_Bounded_Length (Max => 255);
+   subtype Keyword_String is Keyword_Strings.Bounded_String;
+
+   function Hash is new Ada.Strings.Bounded.Hash (Keyword_Strings);
+   package Hashed_Maps is new
+     Ada.Containers.Formal_Hashed_Maps (Key_Type        => Keyword_Strings.Bounded_String,
+                                        Element_Type    => Token_Kind,
+                                        Hash            => Hash,
+                                        Equivalent_Keys => Keyword_Strings."="
+                                       );
+
+   Keywords : Hashed_Maps.Map (Capacity => 20, Modulus => 97);
+
+   procedure Add_Keyword (Word : String; T : Token_Kind);
+
+   procedure Add_Keyword (Word : String; T : Token_Kind) is
+   begin
+      Hashed_Maps.Insert (Container => Keywords,
+                          Key       => Keyword_Strings.To_Bounded_String (Word),
+                          New_Item  => T);
+   end Add_Keyword;
 
    procedure Scan_Tokens (Source : String; Token_List : out Tokens.List) is
 
       Start, Current : Natural := 1;
       Line           : Natural := 1;
 
+      function Is_At_End return Boolean;
       procedure Scan_Token;
+
+      function Is_At_End return Boolean is
+      begin
+         return Current > Source'Last;
+      end Is_At_End;
 
       procedure Scan_Token is
          procedure Add_Token (Kind : Token_Kind);
          procedure Add_Token (Kind : Token_Kind; Lexeme : String);
-         function Advance return Character;
+         procedure Advance (C : out Character);
          function Match (Expected : Character) return Boolean;
          function Peek return Character;
+         function Peek_Next return Character;
+         procedure Scan_Identifier;
+         procedure Scan_Number;
+         procedure Scan_String;
 
          procedure Add_Token (Kind : Token_Kind) is
          begin
@@ -30,15 +68,15 @@ package body Scanners is
                                                             Line   => Line));
          end Add_Token;
 
-         function Advance return Character is
+         procedure Advance (C : out Character) is
          begin
             Current := Current + 1;
-            return Source (Current - 1);
+            C := Source (Current - 1);
          end Advance;
 
          function Match (Expected : Character) return Boolean is
          begin
-            if Current = Source'Last then
+            if Is_At_End then
                return False;
             end if;
             if Source (Current) /= Expected then
@@ -50,15 +88,87 @@ package body Scanners is
 
          function Peek return Character is
          begin
-            if Current >= Source'Last then
+            if Is_At_End then
                return NUL;
             else
                return Source (Current);
             end if;
          end Peek;
 
-         C : constant Character := Advance;
+         function Peek_Next return Character is
+         begin
+            if Current + 1 > Source'Last then
+               return NUL;
+            else
+               return Source (Current + 1);
+            end if;
+         end Peek_Next;
+
+         procedure Scan_Identifier is
+            use Hashed_Maps;
+            Dummy : Character;
+         begin
+            while Ada.Characters.Handling.Is_Alphanumeric (Peek)
+               or else Peek = '_' loop
+               Advance (Dummy);
+            end loop;
+            declare
+               Text : constant Keyword_String := Keyword_Strings.To_Bounded_String (Source (Start .. Current - 1));
+            begin
+               if Contains (Keywords, Text) then
+                  Add_Token (Element (Keywords, Text));
+               else
+                  Add_Token (T_IDENTIFIER);
+               end if;
+            end;
+         end Scan_Identifier;
+
+         procedure Scan_Number is
+            use Ada.Characters.Handling;
+            Dummy : Character;
+         begin
+            while Is_Decimal_Digit (Peek) loop
+               Advance (Dummy);
+            end loop;
+
+            -- look for a fractional part
+            if Peek = '.' and then Is_Decimal_Digit (Peek_Next) then
+               -- consume the '.'
+               Advance (Dummy);
+               while Is_Decimal_Digit (Peek) loop
+                  Advance (Dummy);
+               end loop;
+            end if;
+            -- Our Add_Token only takes strings, so, like Ivan, leave out
+            -- the value for now.
+            --            Add_Token (T_NUMBER, Float'Value (Source (Start .. Current)));
+            Add_Token (T_NUMBER);
+         end Scan_Number;
+
+         procedure Scan_String is
+            Dummy : Character;
+         begin
+            while not Is_At_End and then Peek /= '"'loop
+               if Peek = LF then
+                  Line := Line + 1;
+               end if;
+               Advance (Dummy);
+            end loop;
+            -- unterminated string
+            if Is_At_End then
+               Error_Reporter.Error (Line, "Unterminated string.");
+               return;
+            end if;
+            -- the closing "
+            Advance (Dummy);
+
+            -- trim the surrounding quotes
+            Add_Token (T_STRING, Source (Start + 1 .. Current - 1));
+         end Scan_String;
+
+         C :  Character;
       begin
+         Advance (C);
          case C is
          when '(' => Add_Token (T_LEFT_PAREN);
          when ')' => Add_Token (T_RIGHT_PAREN);
@@ -96,7 +206,7 @@ package body Scanners is
                end if;
             when '/' =>
                if Match ('/') then
-                  while Peek /= LF and then Current <= Source'Last loop
+                  while Peek /= LF and then not Is_At_End loop
                      Current := Current + 1;
                   end loop;
                else
@@ -104,16 +214,24 @@ package body Scanners is
                end if;
             when ' ' | CR | HT =>
                null;
-               when LF => Line := Line + 1;
+            when LF => Line := Line + 1;
+            when '"' =>
+               Scan_String;
 
-               when others => Error_Reporter.Error (Line    => Line,
-                                               Message => "Unexpected Character");
+            when others =>
+               if Ada.Characters.Handling.Is_Decimal_Digit (C) then
+                  Scan_Number;
+               elsif Ada.Characters.Handling.Is_Letter (C) then
+                  Scan_Identifier;
+               else
+                  Error_Reporter.Error (Line, "Unexpected character.");
+               end if;
          end case;
       end Scan_Token;
    begin
       Tokens.Lists.Clear (Token_List);
 
-      while Current <= Source'Last loop
+      while not Is_At_End loop
          Start := Current;
          Scan_Token;
       end loop;
@@ -123,4 +241,21 @@ package body Scanners is
                                                           Line   => Line));
    end Scan_Tokens;
 
+begin
+   Add_Keyword ("and",    T_AND);
+   Add_Keyword ("class",  T_CLASS);
+   Add_Keyword ("else",   T_ELSE);
+   Add_Keyword ("false",  T_FALSE);
+   Add_Keyword ("for",    T_FOR);
+   Add_Keyword ("fun",    T_FUN);
+   Add_Keyword ("if",     T_IF);
+   Add_Keyword ("nil",    T_NIL);
+   Add_Keyword ("or",     T_OR);
+   Add_Keyword ("print",  T_PRINT);
+   Add_Keyword ("return", T_RETURN);
+   Add_Keyword ("super",  T_SUPER);
+   Add_Keyword ("this",   T_THIS);
+   Add_Keyword ("true",   T_TRUE);
+   Add_Keyword ("var",    T_VAR);
+   Add_Keyword ("while",  T_WHILE);
 end Scanners;

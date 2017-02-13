@@ -5,7 +5,7 @@ project Lox is
    for Main use ("lox.adb");
 
    package Compiler is
-      for Default_Switches ("ada") use ("-gnaty3biknOpStxe", "-gnatwa", "-gnat12", "-gnatf", "-gnatyabBCehiklnoOprsStux", "-g");
+      for Default_Switches ("ada") use ("-gnaty3biknOpStxe", "-gnatwa.oh", "-gnat12", "-gnatf", "-gnatyabBCehiklnoOprsStux", "-g", "-gnatVi");
    end Compiler;
 
 end Lox;
