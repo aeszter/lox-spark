@@ -1,4 +1,5 @@
 with Ada.Containers.Formal_Doubly_Linked_Lists;
+with L_Strings; use L_Strings;
 
 package Tokens with SPARK_Mode is
    type Token_Kind is (
@@ -21,20 +22,13 @@ package Tokens with SPARK_Mode is
 
                         T_EOF);
 
-   type Lexeme_String is record
-      S : String (1 .. 80);
-      Length : Natural;
-   end record;
-
    type Token is record
       Kind : Token_Kind;
-      Lexeme : Lexeme_String;
+      Lexeme : L_String;
       Line   : Positive;
    end record;
 
    function To_String (T : Token) return String;
-   function To_String (L : Lexeme_String) return String;
-   function To_Lexeme (S : String) return Lexeme_String;
    function New_Token (Kind : Token_Kind; Lexeme : String; Line : Positive) return Token;
    package Lists is new Ada.Containers.Formal_Doubly_Linked_Lists (Element_Type => Token);
    subtype List is Lists.List;

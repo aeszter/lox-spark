@@ -1,23 +1,17 @@
-with Tokens; use Tokens;
-with Error_Reporter;
 with Ada.Characters.Handling;
 with Ada.Containers;
-with Ada.Strings;
 with Ada.Containers.Formal_Hashed_Maps;
-with Ada.Strings.Bounded;
-with Ada.Strings.Bounded.Hash;
+with Tokens; use Tokens;
+with Error_Reporter;
+with L_Strings; use L_Strings;
 
 package body Scanners is
 
-   package Keyword_Strings is new Ada.Strings.Bounded.Generic_Bounded_Length (Max => 255);
-   subtype Keyword_String is Keyword_Strings.Bounded_String;
-
-   function Hash is new Ada.Strings.Bounded.Hash (Keyword_Strings);
    package Hashed_Maps is new
-     Ada.Containers.Formal_Hashed_Maps (Key_Type        => Keyword_Strings.Bounded_String,
+     Ada.Containers.Formal_Hashed_Maps (Key_Type        => L_String,
                                         Element_Type    => Token_Kind,
                                         Hash            => Hash,
-                                        Equivalent_Keys => Keyword_Strings."="
+                                        Equivalent_Keys => L_Strings."="
                                        );
 
    Keywords : Hashed_Maps.Map (Capacity => 20, Modulus => 97);
@@ -27,7 +21,7 @@ package body Scanners is
    procedure Add_Keyword (Word : String; T : Token_Kind) is
    begin
       Hashed_Maps.Insert (Container => Keywords,
-                          Key       => Keyword_Strings.To_Bounded_String (Word),
+                          Key       => L_Strings.To_Bounded_String (Word),
                           New_Item  => T);
    end Add_Keyword;
 
@@ -113,7 +107,7 @@ package body Scanners is
                Advance (Dummy);
             end loop;
             declare
-               Text : constant Keyword_String := Keyword_Strings.To_Bounded_String (Source (Start .. Current - 1));
+               Text : constant L_String := L_Strings.To_Bounded_String (Source (Start .. Current - 1));
             begin
                if Contains (Keywords, Text) then
                   Add_Token (Element (Keywords, Text));
