@@ -2,6 +2,18 @@ with Ada.Strings.Hash;
 
 package body L_Strings with SPARK_Mode is
 
+   function "=" (Left, Right : L_String) return Boolean is
+   begin
+      return Left.Length = Right.Length and then
+        Left.Data = Right.Data;
+   end "=";
+
+   function "=" (Left : L_String; Right : String) return Boolean is
+   begin
+      return Left.Length = Right'Length and then
+        Left.Data (Left.Data'First .. Left.Data'First + Right'Length - 1) = Right;
+   end "=";
+
    function Hash (S : L_String) return Ada.Containers.Hash_Type is
    begin
       if S.Length = 0 then
