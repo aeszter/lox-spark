@@ -28,8 +28,11 @@ package Tokens with SPARK_Mode is
       Line   : Positive;
    end record;
 
-   function To_String (T : Token) return String;
-   function New_Token (Kind : Token_Kind; Lexeme : String; Line : Positive) return Token;
+   function To_String (T : Token_Kind) return String with
+     Global => null,
+   Post => To_String'Result'Length <= 100 and then To_String'Result'First = 1;
+   function To_String (T : Token) return String with Global => null, Pre => True;
+   function New_Token (Kind : Token_Kind; Lexeme : String; Line : Positive) return Token with Global => null, Pre => True;
    package Lists is new Ada.Containers.Formal_Doubly_Linked_Lists (Element_Type => Token);
    subtype List is Lists.List;
    subtype Cursor is  Lists.Cursor;
