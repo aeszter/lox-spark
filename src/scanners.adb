@@ -2,7 +2,6 @@ with Ada.Characters.Handling;
 -- with Ada.Containers; use Ada.Containers;
 -- with Ada.Containers.Formal_Hashed_Maps;
 with Tokens; use Tokens;
-with Error_Reporter;
 with L_Strings; use L_Strings;
 
 package body Scanners with SPARK_Mode is
@@ -36,10 +35,15 @@ package body Scanners with SPARK_Mode is
    procedure Scan_Tokens (Source : String; Token_List : out Tokens.List) is
 
       Start, Current : Natural := 1;
-      Line           : Natural := 1;
+      Line           : Positive := 1;
 
-      function Is_At_End return Boolean;
-      procedure Scan_Token;
+      function Is_At_End return Boolean with
+        Global => (Current, Source),
+      Post => (if Is_At_End'Result = False then Current <= Source'Last);
+      procedure Scan_Token with
+        Global => (Input  => (Source, Start),
+                   in_out => (Current, Line, Token_List, SPARK.Text_IO.Standard_Error),
+                   Output => (Error_Reporter.State));
 
       function Is_At_End return Boolean is
       begin
@@ -47,15 +51,22 @@ package body Scanners with SPARK_Mode is
       end Is_At_End;
 
       procedure Scan_Token is
-         procedure Add_Token (Kind : Token_Kind);
+         procedure Add_Token (Kind : Token_Kind) with
+         Pre => Start < Current and then Current - 1 <= Source'Last;
          procedure Add_Token (Kind : Token_Kind; Lexeme : String);
-         procedure Advance (C : out Character);
-         function Match (Expected : Character) return Boolean;
+         procedure Advance (C : out Character) with
+         Pre => Current <= Source'Last;
+         procedure Advance_If_Match (Expected : Character; Match : out Boolean) with
+         Global => (in_out => Current, Input => Source);
          function Peek return Character;
          function Peek_Next return Character;
-         procedure Scan_Identifier;
+         procedure Scan_Identifier with
+         Pre => Current <= Source'Last;
          procedure Scan_Number;
-         procedure Scan_String;
+         procedure Scan_String with
+           Global => (Input  => (Source, Start),
+                      in_out => (Current, Line, Token_List, SPARK.Text_IO.Standard_Error),
+                      Output => Error_Reporter.State);
 
          procedure Add_Token (Kind : Token_Kind) is
          begin
@@ -76,17 +87,17 @@ package body Scanners with SPARK_Mode is
             C := Source (Current - 1);
          end Advance;
 
-         function Match (Expected : Character) return Boolean is
+         procedure Advance_If_Match (Expected : Character; Match : out Boolean) is
          begin
             if Is_At_End then
-               return False;
+               Match := False;
+            elsif Source (Current) /= Expected then
+               Match := False;
+            else
+               Current := Current + 1;
+               Match := True;
             end if;
-            if Source (Current) /= Expected then
-               return False;
-            end if;
-            Current := Current + 1;
-            return True;
-         end Match;
+         end Advance_If_Match;
 
          function Peek return Character is
          begin
@@ -201,45 +212,56 @@ package body Scanners with SPARK_Mode is
          end Scan_String;
 
          C :  Character;
+         Match : Boolean;
       begin
          Advance (C);
          case C is
-         when '(' => Add_Token (T_LEFT_PAREN);
-         when ')' => Add_Token (T_RIGHT_PAREN);
-         when '{' => Add_Token (T_LEFT_BRACE);
-         when '}' => Add_Token (T_RIGHT_BRACE);
-         when ',' => Add_Token (T_COMMA);
+            when '(' => Add_Token (T_LEFT_PAREN);
+            when ')' => Add_Token (T_RIGHT_PAREN);
+            when '{' => Add_Token (T_LEFT_BRACE);
+            when '}' => Add_Token (T_RIGHT_BRACE);
+            when ',' => Add_Token (T_COMMA);
             when '.' => Add_Token (T_DOT);
-         when '-' => Add_Token (T_MINUS);
-         when '+' => Add_Token (T_PLUS);
-         when ';' => Add_Token (T_SEMICOLON);
+            when '-' => Add_Token (T_MINUS);
+            when '+' => Add_Token (T_PLUS);
+            when ';' => Add_Token (T_SEMICOLON);
             when '*' => Add_Token (T_STAR);
             when '!' =>
-               if Match ('=') then
+               Advance_If_Match (Expected => '=',
+                                 Match    => Match);
+               if Match then
                   Add_Token (T_BANG_EQUAL);
                else
                   Add_Token (T_BANG);
                end if;
             when '=' =>
-               if Match ('=') then
+               Advance_If_Match (Expected => '=',
+                                 Match    => Match);
+               if Match then
                   Add_Token (T_EQUAL_EQUAL);
                else
                   Add_Token (T_EQUAL);
                end if;
             when '<' =>
-               if Match ('=') then
+               Advance_If_Match (Expected => '=',
+                                 Match    => Match);
+               if Match then
                   Add_Token (T_LESS_EQUAL);
                else
                   Add_Token (T_LESS);
                end if;
             when '>' =>
-               if Match ('=') then
+               Advance_If_Match (Expected => '=',
+                                 Match    => Match);
+               if Match then
                   Add_Token (T_GREATER_EQUAL);
                else
                   Add_Token (T_GREATER);
                end if;
             when '/' =>
-               if Match ('/') then
+               Advance_If_Match (Expected => '/',
+                                 Match    => Match);
+               if Match then
                   while Peek /= LF and then not Is_At_End loop
                      Current := Current + 1;
                   end loop;
