@@ -1,29 +1,37 @@
 with Ada.Characters.Handling;
-with Ada.Containers;
-with Ada.Containers.Formal_Hashed_Maps;
+-- with Ada.Containers; use Ada.Containers;
+-- with Ada.Containers.Formal_Hashed_Maps;
 with Tokens; use Tokens;
 with Error_Reporter;
 with L_Strings; use L_Strings;
 
-package body Scanners is
+package body Scanners with SPARK_Mode is
 
-   package Hashed_Maps is new
-     Ada.Containers.Formal_Hashed_Maps (Key_Type        => L_String,
-                                        Element_Type    => Token_Kind,
-                                        Hash            => Hash,
-                                        Equivalent_Keys => L_Strings."="
-                                       );
-
-   Keywords : Hashed_Maps.Map (Capacity => 20, Modulus => 97);
-
-   procedure Add_Keyword (Word : String; T : Token_Kind);
-
-   procedure Add_Keyword (Word : String; T : Token_Kind) is
-   begin
-      Hashed_Maps.Insert (Container => Keywords,
-                          Key       => L_Strings.To_Bounded_String (Word),
-                          New_Item  => T);
-   end Add_Keyword;
+   --   Note: Instantiation Formal_Hashed_Maps triggers a bug in
+   --         gnatprove, so we use a simpler and slower method
+   --         instead. Focus of this implementation is provability,
+   --         not performance (or even elegance).
+--
+--     package Hashed_Maps is new
+--       Ada.Containers.Formal_Hashed_Maps (Key_Type        => L_String,
+--                                          Element_Type    => Token_Kind,
+--                                          Hash            => Hash,
+--                                          Equivalent_Keys => L_Strings."="
+--                                         );
+--
+--     Keywords : Hashed_Maps.Map (Capacity => 20, Modulus => 97);
+--
+--     procedure Add_Keyword (Word : String; T : Token_Kind) with
+--       Global => Keywords,
+--       Pre => Hashed_Maps.Length (Keywords) < 20,
+--     Post => Hashed_Maps.Length (Keywords) = Hashed_Maps.Length (Keywords)'Old + 1;
+--
+--     procedure Add_Keyword (Word : String; T : Token_Kind) is
+--     begin
+--        Hashed_Maps.Insert (Container => Keywords,
+--                            Key       => L_Strings.To_Bounded_String (Word),
+--                            New_Item  => T);
+--     end Add_Keyword;
 
    procedure Scan_Tokens (Source : String; Token_List : out Tokens.List) is
 
@@ -99,7 +107,7 @@ package body Scanners is
          end Peek_Next;
 
          procedure Scan_Identifier is
-            use Hashed_Maps;
+--            use Hashed_Maps;
             Dummy : Character;
          begin
             while Ada.Characters.Handling.Is_Alphanumeric (Peek)
@@ -109,8 +117,40 @@ package body Scanners is
             declare
                Text : constant L_String := L_Strings.To_Bounded_String (Source (Start .. Current - 1));
             begin
-               if Contains (Keywords, Text) then
-                  Add_Token (Element (Keywords, Text));
+--               if Contains (Keywords, Text) then
+--                  Add_Token (Element (Keywords, Text));
+               if Text = "and" then
+                  Add_Token (T_AND);
+               elsif Text = "class" then
+                  Add_Token (T_CLASS);
+               elsif Text = "else" then
+                  Add_Token (T_ELSE);
+               elsif Text = "false" then
+                  Add_Token (T_FALSE);
+               elsif Text = "for" then
+                  Add_Token (T_FOR);
+               elsif Text = "fun" then
+                  Add_Token (T_FUN);
+               elsif Text = "if" then
+                  Add_Token (T_IF);
+               elsif Text = "nil" then
+                  Add_Token (T_NIL);
+               elsif Text = "or" then
+                  Add_Token (T_OR);
+               elsif Text = "print" then
+                  Add_Token (T_PRINT);
+               elsif Text = "return" then
+                  Add_Token (T_RETURN);
+               elsif Text = "super" then
+                  Add_Token (T_SUPER);
+               elsif Text = "this" then
+                  Add_Token (T_THIS);
+               elsif Text = "true" then
+                  Add_Token (T_TRUE);
+               elsif Text = "var" then
+                  Add_Token (T_VAR);
+               elsif Text = "while" then
+                  Add_Token (T_WHILE);
                else
                   Add_Token (T_IDENTIFIER);
                end if;
@@ -236,20 +276,21 @@ package body Scanners is
    end Scan_Tokens;
 
 begin
-   Add_Keyword ("and",    T_AND);
-   Add_Keyword ("class",  T_CLASS);
-   Add_Keyword ("else",   T_ELSE);
-   Add_Keyword ("false",  T_FALSE);
-   Add_Keyword ("for",    T_FOR);
-   Add_Keyword ("fun",    T_FUN);
-   Add_Keyword ("if",     T_IF);
-   Add_Keyword ("nil",    T_NIL);
-   Add_Keyword ("or",     T_OR);
-   Add_Keyword ("print",  T_PRINT);
-   Add_Keyword ("return", T_RETURN);
-   Add_Keyword ("super",  T_SUPER);
-   Add_Keyword ("this",   T_THIS);
-   Add_Keyword ("true",   T_TRUE);
-   Add_Keyword ("var",    T_VAR);
-   Add_Keyword ("while",  T_WHILE);
+--     Add_Keyword ("and",    T_AND);
+--     Add_Keyword ("class",  T_CLASS);
+--     Add_Keyword ("else",   T_ELSE);
+--     Add_Keyword ("false",  T_FALSE);
+--     Add_Keyword ("for",    T_FOR);
+--     Add_Keyword ("fun",    T_FUN);
+--     Add_Keyword ("if",     T_IF);
+--     Add_Keyword ("nil",    T_NIL);
+--     Add_Keyword ("or",     T_OR);
+--     Add_Keyword ("print",  T_PRINT);
+--     Add_Keyword ("return", T_RETURN);
+--     Add_Keyword ("super",  T_SUPER);
+--     Add_Keyword ("this",   T_THIS);
+--     Add_Keyword ("true",   T_TRUE);
+--     Add_Keyword ("var",    T_VAR);
+--     Add_Keyword ("while",  T_WHILE);
+   null;
 end Scanners;
