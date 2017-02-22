@@ -91,6 +91,12 @@ package body Scanners with SPARK_Mode is
            Current <= Source'Last and then
            Current < Integer'Last,
            Post => Current = Current'Old + 1;
+         procedure Ignore with
+           Global => (Input => Source, In_Out => Current),
+           Pre => Current >= Source'First and then
+           Current <= Source'Last and then
+           Current < Integer'Last,
+           Post => Current = Current'Old + 1;
          procedure Advance_If_Match (Expected : Character; Match : out Boolean) with
            Global => (in_out => Current, Input => Source),
            Pre => Source'First <= Current and then Source'Last < Integer'Last,
@@ -155,6 +161,11 @@ package body Scanners with SPARK_Mode is
             end if;
          end Advance_If_Match;
 
+         procedure Ignore is
+         begin
+            Current := Current + 1;
+         end Ignore;
+
          function Peek return Character is
          begin
             if Is_At_End then
@@ -175,7 +186,6 @@ package body Scanners with SPARK_Mode is
 
          procedure Scan_Identifier is
 --            use Hashed_Maps;
-            Dummy : Character;
          begin
             while Is_Alphanumeric (Peek)
               or else Peek = '_' loop
@@ -183,7 +193,7 @@ package body Scanners with SPARK_Mode is
                pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
                pragma Loop_Invariant (Start = Start'Loop_Entry);
                pragma Loop_Invariant (Current >= Current'Loop_Entry);
-               Advance (Dummy);
+               Ignore;
             end loop;
             declare
                Text : constant L_String := L_Strings.To_Bounded_String (Source (Start .. Current - 1));
@@ -229,25 +239,24 @@ package body Scanners with SPARK_Mode is
          end Scan_Identifier;
 
          procedure Scan_Number is
-            Dummy : Character;
          begin
             while Is_Decimal_Digit (Peek) loop
                pragma Loop_Invariant (Start <= Current);
                pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
                pragma Loop_Invariant (Start = Start'Loop_Entry);
                pragma Loop_Invariant (Current >= Current'Loop_Entry);
-               Advance (Dummy);
+               Ignore;
             end loop;
             -- look for a fractional part
             if Peek = '.' and then Is_Decimal_Digit (Peek_Next) then
                -- consume the '.'
-               Advance (Dummy);
+               Ignore;
                while Is_Decimal_Digit (Peek) loop
                   pragma Loop_Invariant (Start <= Current);
                   pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
                   pragma Loop_Invariant (Start = Start'Loop_Entry);
                   pragma Loop_Invariant (Current >= Current'Loop_Entry);
-                  Advance (Dummy);
+                  Ignore;
                end loop;
             end if;
             -- Our Add_Token only takes strings, so, like Ivan, leave out
@@ -257,7 +266,6 @@ package body Scanners with SPARK_Mode is
          end Scan_Number;
 
          procedure Scan_String is
-            Dummy : Character;
          begin
             while not Is_At_End and then Peek /= '"'loop
                pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
@@ -270,7 +278,7 @@ package body Scanners with SPARK_Mode is
                             Message => "Too many lines of source code");
                   end if;
                end if;
-               Advance (Dummy);
+               Ignore;
             end loop;
             -- unterminated string
             if Is_At_End then
@@ -278,7 +286,7 @@ package body Scanners with SPARK_Mode is
                return;
             end if;
             -- the closing "
-            Advance (Dummy);
+            Ignore;
 
             -- trim the surrounding quotes
             Add_Token (T_STRING, Source (Start + 1 .. Current - 1));
