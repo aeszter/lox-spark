@@ -1,5 +1,4 @@
-with Ada.Characters.Handling;
--- with Ada.Containers; use Ada.Containers;
+with Ada.Containers; use Ada.Containers;
 -- with Ada.Containers.Formal_Hashed_Maps;
 with Tokens; use Tokens;
 with L_Strings; use L_Strings;
@@ -32,18 +31,46 @@ package body Scanners with SPARK_Mode is
 --                            New_Item  => T);
 --     end Add_Keyword;
 
-   procedure Scan_Tokens (Source : String; Token_List : out Tokens.List) is
+   function Is_Alphanumeric (C : Character) return Boolean is
+   begin
+      if C in 'a' .. 'z' or else C in 'A' .. 'Z' or else C in '0' .. '9' then
+         return True;
+      else
+         return False;
+      end if;
+   end Is_Alphanumeric;
 
-      Start, Current : Natural := 1;
+   function Is_Decimal_Digit (C : Character) return Boolean is
+   begin
+      if C in '0' .. '9' then
+         return True;
+      else
+         return False;
+      end if;
+   end Is_Decimal_Digit;
+
+   function Is_Letter (C : Character) return Boolean is
+   begin
+      if C in 'a' .. 'z' or else C in 'A' .. 'Z' then
+         return True;
+      else
+         return False;
+      end if;
+   end Is_Letter;
+
+   procedure Scan_Tokens (Source : String; Token_List : in out Tokens.List) is
+
+      Start, Current : Natural;
       Line           : Positive := 1;
 
       function Is_At_End return Boolean with
-        Global => (Current, Source),
+        Global => (Input => (Current, Source)),
       Post => (if Is_At_End'Result = False then Current <= Source'Last);
       procedure Scan_Token with
         Global => (Input  => (Source, Start),
-                   in_out => (Current, Line, Token_List, SPARK.Text_IO.Standard_Error),
-                   Output => (Error_Reporter.State));
+                   in_out => (Current, Line, Token_List, SPARK.Text_IO.Standard_Error, Error_Reporter.State)),
+        Pre => Source'First <= Start and then Start <= Current and then Current <= Source'Last and then Source'Last < Integer'Last,
+      Post => Current >= Current'Old;
 
       function Is_At_End return Boolean is
       begin
@@ -52,21 +79,44 @@ package body Scanners with SPARK_Mode is
 
       procedure Scan_Token is
          procedure Add_Token (Kind : Token_Kind) with
-         Pre => Start < Current and then Current - 1 <= Source'Last;
-         procedure Add_Token (Kind : Token_Kind; Lexeme : String);
+           Global => (input  => (Start, Current, Source, Line),
+                      in_out => (Error_Reporter.State, SPARK.Text_IO.Standard_Error, Token_List)),
+         Pre => Source'First <= Start and then Start < Current and then Current - 1 <= Source'Last;
+         procedure Add_Token (Kind : Token_Kind; Lexeme : String) with
+           Global => (input  => (Line),
+                      in_out => (Error_Reporter.State, SPARK.Text_IO.Standard_Error, Token_List));
          procedure Advance (C : out Character) with
-         Pre => Current <= Source'Last;
+           Global => (Input => Source, In_Out => Current),
+           Pre => Current >= Source'First and then
+           Current <= Source'Last and then
+           Current < Integer'Last,
+           Post => Current = Current'Old + 1;
          procedure Advance_If_Match (Expected : Character; Match : out Boolean) with
-         Global => (in_out => Current, Input => Source);
-         function Peek return Character;
-         function Peek_Next return Character;
+           Global => (in_out => Current, Input => Source),
+           Pre => Source'First <= Current and then Source'Last < Integer'Last,
+           Post => (if Match then
+                      (Current - 1 <= Source'Last and then Current = Current'Old + 1)
+                        else
+                       Current = Current'Old);
+         function Peek return Character with
+           Global => (Input => (Current, Source)),
+           Pre => Current >= Source'First,
+         Post => (if Peek'Result /= NUL then Current <= Source'Last);
+         function Peek_Next return Character with
+         Pre => Current >= Source'First and then Current < Integer'Last;
          procedure Scan_Identifier with
-         Pre => Current <= Source'Last;
-         procedure Scan_Number;
+           Pre => Source'First <= Start and then Start < Current and then
+           Current - 1 <= Source'Last and then Source'Last < Integer'Last,
+         Post => Current >= Current'Old;
+         procedure Scan_Number with
+           Pre => Source'First <= Start and then Start < Current and then
+                  Current - 1 <= Source'Last and then Source'Last < Integer'Last,
+         Post => Current >= Current'Old;
          procedure Scan_String with
            Global => (Input  => (Source, Start),
-                      in_out => (Current, Line, Token_List, SPARK.Text_IO.Standard_Error),
-                      Output => Error_Reporter.State);
+                      in_out => (Current, Line, Token_List, SPARK.Text_IO.Standard_Error, Error_Reporter.State)),
+           Pre => Source'First <= Start and then Start < Current and then Source'Last < Integer'Last,
+         Post => Current >= Current'Old;
 
          procedure Add_Token (Kind : Token_Kind) is
          begin
@@ -74,11 +124,17 @@ package body Scanners with SPARK_Mode is
          end Add_Token;
 
          procedure Add_Token (Kind : Token_Kind; Lexeme : String) is
+            use Tokens.Lists;
          begin
-            Tokens.Lists.Append (Container => Token_List,
-                              New_Item  => Tokens.New_Token (Kind   => Kind,
-                                                            Lexeme => Lexeme,
-                                                            Line   => Line));
+            if Length (Token_List) >= Token_List.Capacity then
+               Error_Reporter.Error (Line_No => Line,
+                                     Message => "Out of token capacity");
+               return;
+            end if;
+            Append (Container => Token_List,
+                    New_Item  => Tokens.New_Token (Kind   => Kind,
+                                                   Lexeme => Lexeme,
+                                                   Line   => Line));
          end Add_Token;
 
          procedure Advance (C : out Character) is
@@ -121,8 +177,12 @@ package body Scanners with SPARK_Mode is
 --            use Hashed_Maps;
             Dummy : Character;
          begin
-            while Ada.Characters.Handling.Is_Alphanumeric (Peek)
-               or else Peek = '_' loop
+            while Is_Alphanumeric (Peek)
+              or else Peek = '_' loop
+               pragma Loop_Invariant (Start <= Current);
+               pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
+               pragma Loop_Invariant (Start = Start'Loop_Entry);
+               pragma Loop_Invariant (Current >= Current'Loop_Entry);
                Advance (Dummy);
             end loop;
             declare
@@ -169,18 +229,24 @@ package body Scanners with SPARK_Mode is
          end Scan_Identifier;
 
          procedure Scan_Number is
-            use Ada.Characters.Handling;
             Dummy : Character;
          begin
             while Is_Decimal_Digit (Peek) loop
+               pragma Loop_Invariant (Start <= Current);
+               pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
+               pragma Loop_Invariant (Start = Start'Loop_Entry);
+               pragma Loop_Invariant (Current >= Current'Loop_Entry);
                Advance (Dummy);
             end loop;
-
             -- look for a fractional part
             if Peek = '.' and then Is_Decimal_Digit (Peek_Next) then
                -- consume the '.'
                Advance (Dummy);
                while Is_Decimal_Digit (Peek) loop
+                  pragma Loop_Invariant (Start <= Current);
+                  pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
+                  pragma Loop_Invariant (Start = Start'Loop_Entry);
+                  pragma Loop_Invariant (Current >= Current'Loop_Entry);
                   Advance (Dummy);
                end loop;
             end if;
@@ -194,8 +260,15 @@ package body Scanners with SPARK_Mode is
             Dummy : Character;
          begin
             while not Is_At_End and then Peek /= '"'loop
+               pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
+               pragma Loop_Invariant (Current >= Current'Loop_Entry);
                if Peek = LF then
-                  Line := Line + 1;
+                  if Line < Integer'Last then
+                     Line := Line + 1;
+                  else
+                     Error_Reporter.Error (Line_No => Line,
+                            Message => "Too many lines of source code");
+                  end if;
                end if;
                Advance (Dummy);
             end loop;
@@ -263,6 +336,8 @@ package body Scanners with SPARK_Mode is
                                  Match    => Match);
                if Match then
                   while Peek /= LF and then not Is_At_End loop
+                     pragma Loop_Invariant (Source'First <= Current and then Current <= Source'Last);
+                     pragma Loop_Invariant (Current >= Current'Loop_Entry);
                      Current := Current + 1;
                   end loop;
                else
@@ -270,14 +345,20 @@ package body Scanners with SPARK_Mode is
                end if;
             when ' ' | CR | HT =>
                null;
-            when LF => Line := Line + 1;
+            when LF =>
+               if Line < Integer'Last then
+                  Line := Line + 1;
+               else
+                  Error_Reporter.Error (Line_No => Line,
+                                        Message => "Too many lines of source code");
+               end if;
             when '"' =>
                Scan_String;
 
             when others =>
-               if Ada.Characters.Handling.Is_Decimal_Digit (C) then
+               if Is_Decimal_Digit (C) then
                   Scan_Number;
-               elsif Ada.Characters.Handling.Is_Letter (C) then
+               elsif Is_Letter (C) then
                   Scan_Identifier;
                else
                   Error_Reporter.Error (Line, "Unexpected character.");
@@ -286,15 +367,27 @@ package body Scanners with SPARK_Mode is
       end Scan_Token;
    begin
       Tokens.Lists.Clear (Token_List);
+      Current := Source'First;
 
       while not Is_At_End loop
          Start := Current;
+         pragma Loop_Invariant (Source'First <= Start);
+         pragma Loop_Invariant (Start <= Current);
+         pragma Loop_Invariant (Current <= Source'Last);
+               pragma Assert (Source'First <= Start);
+               pragma Assert (Current <= Source'Last);
+               pragma Assert (Source'Last < Integer'Last);
          Scan_Token;
       end loop;
-      Tokens.Lists.Append (Container => Token_List,
-                           New_Item  => Tokens.New_Token (Kind   => Tokens.T_EOF,
-                                                          Lexeme => "",
-                                                          Line   => Line));
+      if Tokens.Lists.Length (Token_List) >= Token_List.Capacity then
+         Error_Reporter.Error (Line_No => Line,
+                               Message => "Out of token capacity");
+      else
+         Tokens.Lists.Append (Container => Token_List,
+                              New_Item  => Tokens.New_Token (Kind   => Tokens.T_EOF,
+                                                             Lexeme => "",
+                                                             Line   => Line));
+      end if;
    end Scan_Tokens;
 
 begin
