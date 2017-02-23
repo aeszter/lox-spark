@@ -4,8 +4,9 @@ package Error_Reporter with SPARK_Mode,
   abstract_state => State,
     Initializes => State
 is
+   pragma Elaborate_Body;
    procedure Error (Line_No : Positive; Message : String) with
-     Global => (in_out => Standard_Error, Output => State);
+     Global => (in_out => (Standard_Error, State));
    procedure Report (Line_No : Positive; Where, Message : String) with
      Global => (in_out => Standard_Error, Output => State);
    function Had_Error return Boolean;
