@@ -1,5 +1,8 @@
 # lox-spark
 This is an implementation of Bob Nystrom's Lox language written in SPARK/Ada.
+The emphasis of this port lies on (formal) correctness and
+provability. Speed and elegance are taken to be secondary virtues.
+
 
 References: 
 * [The Book](http://www.craftinginterpreters.com)
