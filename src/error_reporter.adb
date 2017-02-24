@@ -16,16 +16,26 @@ is
               Message => Message);
    end Error;
 
-   function Had_Error return Boolean is
+   function Had_Error return Boolean with
+     Refined_Post => Had_Error'Result = My_Error
+   is
    begin
       return My_Error;
    end Had_Error;
 
-   procedure Report (Line_No : Positive; Where, Message : String) is
+   procedure Report (Line_No : Positive; Where, Message : String) with
+     Refined_Post => My_Error
+   is
+      Line_Header : constant String (1 .. 5) := "[line";
+      Line_Number : constant String :=  Integer'Image (Line_No);
+      Error_Infix : constant String := "] Error";
+      Message_Separator : constant String := ": ";
    begin
+      pragma Assume (Line_Number'Length <= 10, "because of the limited range of type Integer");
       if Status (Standard_Error) = Success and then Is_Writable (Standard_Error) then
          IO.Put_Line (Standard_Error,
-                      "[line" & Integer'Image (Line_No) & "] Error" & Where & ": " & Message);
+                      Line_Header & Line_Number & Error_Infix & Where
+                      & Message_Separator & Message);
       end if;
       -- why is this here rather than in procedure Error?
       -- it is not part of the report, after all, and we could put the Status/Writable
