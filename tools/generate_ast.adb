@@ -125,13 +125,13 @@ procedure Generate_Ast is
       for I in 1 .. Item_Number loop
          Before := After;
          After := Index (Source  => Input,
-                          Pattern => Separator,
+                         Pattern => Separator,
                          From    => Before);
       end loop;
       if Before > Input'First then
-         return Input (Before + 1 .. After - 1);
+         return Trim (Input (Before + 1 .. After - 1), Ada.Strings.Both);
       else
-         return Input (Input'First .. After - 1);
+         return Trim (Input (Input'First .. After - 1), Ada.Strings.Both);
       end if;
    end Substring;
 
