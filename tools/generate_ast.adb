@@ -10,53 +10,61 @@ procedure Generate_Ast is
    type String_Access is access constant String;
    type String_Array is array (Positive range <>) of String_Access;
    procedure Define_Ast (Output_Dir, Base_Name : String; Types : String_Array);
-   procedure Define_Type (File : IO.File_Type; Base_Name,
-                           Class_Name, Field_List : String);
+   procedure Define_Type (Spec_File, Body_File : IO.File_Type;
+                          Base_Name, Class_Name, Field_List : String);
    procedure Define_Visitor (File : IO.File_Type; Base_Name : String; Types : String_Array);
    function Substring (Input, Separator : String; Item_Number : Positive) return String;
 
    procedure Define_Ast (Output_Dir, Base_Name : String; Types : String_Array) is
-      Path : constant String := Output_Dir & "/" & Base_Name & ".java";
-      File : IO.File_Type;
+      Spec_Path : constant String := Output_Dir & "/" & Base_Name & ".ads";
+      Body_Path : constant String := Output_Dir & "/" & Base_Name & ".adb";
+      Spec_File, Body_File : IO.File_Type;
    begin
-      IO.Create (File => File, Name => Path);
+      IO.Create (File => Spec_File, Name => Spec_Path);
+      IO.Create (File => Body_File, Name => Body_Path);
 
-      IO.Put_Line (File, "package com.craftinginterpreters.lox;");
-      IO.Put_Line (File, "");
-      IO.Put_Line (File, "import java.util.List;");
-      IO.Put_Line (File, "");
-      IO.Put_Line (File, "abstract class " & Base_Name & " {");
-      Define_Visitor (File, Base_Name, Types);
+      IO.Put_Line (Spec_File, "package " & Base_Name & "s is");
+      IO.Put_Line (Body_File, "package body " & Base_Name & "s is");
+      IO.Put_Line (Spec_File, "   type " & Base_Name & " is tagged private;");
+      Define_Visitor (Spec_File, Base_Name, Types);
       -- The AST classes.
       for The_Type of Types loop
          declare
             Class_Name : constant String := Substring (The_Type.all, ":", 1);
             Fields     : constant String := Substring (The_Type.all, ":", 2);
          begin
-            Define_Type (File, Base_Name, Class_Name, Fields);
+            Define_Type (Spec_File, Body_File, Base_Name, Class_Name, Fields);
          end;
       end loop;
 
       -- The base accept() method.
-      IO.Put_Line (File, "");
-      IO.Put_Line (File, "  abstract <R> R accept(Visitor<R> visitor);");
+      IO.Put_Line (Spec_File, "");
+      IO.Put_Line (Spec_File, "--  abstract <R> R accept(Visitor<R> visitor);");
+      IO.Put_Line (Spec_File, "  function Visit_Expr (Self : Expr; V : Visitor) return R is abstract;");
 
-      IO.Put_Line (File, "}");
-      IO.Close (File);
+      IO.Put_Line (Spec_File, "end;");
+      IO.Close (Spec_File);
+      pragma Unreferenced (Spec_File);
+      IO.Put_Line (Body_File, "end;");
+      IO.Close (Body_File);
+      pragma Unreferenced (Body_File);
    end Define_Ast;
 
-   procedure Define_Type (File : IO.File_Type; Base_Name,
-                          Class_Name, Field_List : String) is
+   procedure Define_Type (Spec_File, Body_File : IO.File_Type;
+                          Base_Name, Class_Name, Field_List : String) is
       use Ada.Strings.Fixed;
 
       Before, After : Natural := Field_List'First;
    begin
-      IO.Put_Line (File, "");
-      IO.Put_Line (File, "  static class " & Class_Name & " extends " &
-        Base_Name & " {");
+      IO.Put_Line (Spec_File, "");
+      IO.Put_Line (Spec_File, "--  static class " & Class_Name & " extends " &
+                     Base_Name & " {");
+      IO.Put_Line (Spec_File, "type " & Class_Name & " is new " & Base_Name & ";");
+      IO.Put_Line (Spec_File, "function Visit (Self : " & Class_Name &
+        "; The_Visitor : Visitor) return R;");
 
       -- Constructor.
-      IO.Put_Line (File, "    " & Class_Name & "(" & Field_List & ") {");
+      IO.Put_Line (Spec_File, "--    " & Class_Name & "(" & Field_List & ") {");
 
       while After < Field_List'Last loop
          Before := After;
@@ -70,20 +78,29 @@ procedure Generate_Ast is
                                      From    => Field'First);
             Name  : constant String := Field (Field'First .. Space - 1);
          begin
-            IO.Put_Line (File, "      this." & Name & " = " & Name & ";");
+            IO.Put_Line (Spec_File, "      this." & Name & " = " & Name & ";");
          end;
       end loop;
 
-      IO.Put_Line (File, "    }");
+      IO.Put_Line (Spec_File, "--    }");
       -- Visitor pattern.
-      IO.New_Line (File);
-      IO.Put_Line (File, "    <R> R accept(Visitor<R> visitor) {");
-      IO.Put_Line (File, "      return visitor.visit" &
+      IO.New_Line (Spec_File);
+      IO.Put_Line (Spec_File, "--    <R> R accept(Visitor<R> visitor) {");
+      IO.Put_Line (Spec_File, "--      return visitor.visit" &
         Class_Name & Base_Name & "(this);");
-      IO.Put_Line (File, "    }");
+      IO.Put_Line (Spec_File, "--    }");
+      IO.Put_Line (Spec_File, " generic");
+      IO.Put_Line (Spec_File, "   type R;");
+      IO.Put_Line (Spec_File, " function Visit (Self : " & Class_Name & "; V : Visitor) return R;");
+      IO.Put_Line (Body_File, " generic");
+      IO.Put_Line (Body_File, "   type R;");
+      IO.Put_Line (Body_File, " function Visit (Self : " & Class_Name & "; V : Visitor) return R is");
+      IO.Put_Line (Body_File, " begin");
+      IO.Put_Line (Body_File, "    return V.Visit" & Class_Name & Base_Name & " (Self);");
+      IO.Put_Line (Body_File, " end Visit;");
 
       -- Fields.
-      IO.New_Line (File);
+      IO.New_Line (Spec_File);
       After := Field_List'First;
       while After < Field_List'Last loop
          Before := After;
@@ -93,27 +110,34 @@ procedure Generate_Ast is
          declare
             Field : constant String := Field_List (Before + 1 .. After - 1);
          begin
-            IO.Put_Line (File, "    final " & Field & ";");
+            IO.Put_Line (Spec_File, "    final " & Field & ";");
          end;
       end loop;
 
-      IO.Put_Line (File, "  }");
+      IO.Put_Line (Spec_File, "--  }");
    end Define_Type;
 
    procedure Define_Visitor (File : IO.File_Type; Base_Name : String; Types : String_Array) is
    begin
-      IO.Put_Line (File, "  interface Visitor<R> {");
+      IO.Put_Line (File, "   generic");
+      IO.Put_Line (File, "      type R;");
+      IO.Put_Line (File, "   package Visitors is");
+      IO.Put_Line (File, "      type Visitor is interface;");
+      IO.Put_Line (File, "--  interface Visitor<R> {");
 
       for The_Type of Types loop
          declare
             Type_Name : constant String  := Substring (The_Type.all, ":", 1);
          begin
-            IO.Put_Line (File, "    R visit" & Type_Name & Base_Name & "(" &
+            IO.Put_Line (File, "   function Visit_" & Type_Name & "_" & Base_Name &
+                           " (Self : Visitor; The_" & Base_Name &
+                           " : " & Type_Name & ") return R is abstract;");
+            IO.Put_Line (File, "--    R visit" & Type_Name & Base_Name & "(" &
                   Type_Name & " " & Ada.Characters.Handling.To_Lower (Base_Name) & ");");
          end;
       end loop;
 
-      IO.Put_Line (File, "  }");
+      IO.Put_Line (File, "end Visitors;");
    end Define_Visitor;
 
    function Substring (Input, Separator : String; Item_Number : Positive) return String is
