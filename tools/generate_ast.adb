@@ -53,7 +53,7 @@ procedure Generate_Ast is
       IO.New_Line (Spec_File);
       -- The base accept() method.
       IO.Put_Line (Spec_File, "--  abstract <R> R accept(Visitor<R> visitor);");
-      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : Expr; V : Visitors.Visitor) is abstract;");
+      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : Expr; V : Visitors.Visitor'Class) is abstract;");
 
       IO.Put_Line (Spec_File, "private");
       for The_Type of Types loop
@@ -68,7 +68,7 @@ procedure Generate_Ast is
       IO.Put_Line (Spec_File, "end " & Base_Name & "s;");
       IO.Close (Spec_File);
       pragma Unreferenced (Spec_File);
-      IO.Put_Line (Body_File, "end;");
+      IO.Put_Line (Body_File, "end " & Base_Name & "s;");
       IO.Close (Body_File);
       pragma Unreferenced (Body_File);
    end Define_Ast;
@@ -117,11 +117,12 @@ procedure Generate_Ast is
       IO.Put_Line (Spec_File, "--      return visitor.visit" &
         Class_Name & Base_Name & "(this);");
       IO.Put_Line (Spec_File, "--    }");
-      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : " & Class_Name & "; V : Visitors.Visitor);");
-      IO.Put_Line (Body_File, " procedure Accept_Visitor (Self : " & Class_Name & "; V : Visitor) is");
-      IO.Put_Line (Body_File, " begin");
-      IO.Put_Line (Body_File, "    V.Visit" & Class_Name & Base_Name & " (Self);");
-      IO.Put_Line (Body_File, " end Accept_Visitor;");
+      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : " & Class_Name & "; V : Visitors.Visitor'Class);");
+      IO.New_Line (Body_File);
+      IO.Put_Line (Body_File, "   overriding procedure Accept_Visitor (Self : " & Class_Name & "; V : Visitors.Visitor'Class) is");
+      IO.Put_Line (Body_File, "   begin");
+      IO.Put_Line (Body_File, "      V.Visit_" & Class_Name & "_" & Base_Name & " (Self);");
+      IO.Put_Line (Body_File, "   end Accept_Visitor;");
 
       -- Fields.
       IO.New_Line (Spec_File);
