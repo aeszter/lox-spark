@@ -19,6 +19,10 @@ procedure Generate_Ast is
    procedure Define_Visitor (File : IO.File_Type; Base_Name : String; Types : String_Array);
    function Substring (Input, Separator : String; Item_Number : Positive) return String;
 
+   generic
+      with procedure Process_Field (Field_Name, Type_Name : String);
+   procedure Iterate_Fields (List : String);
+
    procedure Define_Ast (Output_Dir, Base_Name : String; Types : String_Array) is
       Spec_Path : constant String := Output_Dir & "/"
                     & Ada.Characters.Handling.To_Lower (Base_Name) & "s.ads";
@@ -30,12 +34,12 @@ procedure Generate_Ast is
       IO.Create (File => Body_File, Name => Body_Path);
 
       IO.Put_Line (Spec_File, "with L_Strings; use L_Strings;");
-      IO.Put_Line (Spec_File, "with Storage; use Storage;");
       IO.Put_Line (Spec_File, "with Tokens; use Tokens;");
       IO.New_Line (Spec_File);
       IO.Put_Line (Spec_File, "package " & Base_Name & "s is");
       IO.Put_Line (Body_File, "package body " & Base_Name & "s is");
       IO.Put_Line (Spec_File, "   type " & Base_Name & " is abstract tagged null record;");
+      IO.Put_Line (Spec_File, "   type " & Base_Name & "_Handle is new Integer;");
       -- The AST classes.
       for The_Type of Types loop
          declare
@@ -82,36 +86,21 @@ procedure Generate_Ast is
       pragma Unreferenced (Body_File);
       use Ada.Strings.Fixed;
 
-      Before, After : Natural := Field_List'First;
+      procedure Define_One_Type (Field_Name, Type_Name : String);
+
+      procedure Define_One_Type (Field_Name, Type_Name : String) is
+      begin
+         IO.Put_Line (Spec_File, "      " & Field_Name & " : " & Type_Name & ";");
+      end Define_One_Type;
+
+      procedure Iterate_Types is new Iterate_Fields (Define_One_Type);
+
    begin
       IO.Put (Spec_File, "   type " & Class_Name & " is new " & Base_Name & " with ");
 
       if Field_List'Length > 0 then
          IO.Put_Line (Spec_File, "record");
-         while After < Field_List'Last loop
-            Before := After;
-            After := Index (Source  => Field_List,
-                            Pattern => ", ",
-                            From    => Before + 1);
-            if After = 0 then
-               After := Field_List'Last + 1;
-            end if;
-            if Before = Field_List'First then
-               Before := Field_List'First - 1;
-            else -- at ","
-               Before := Before + 1; -- at " "
-            end if;
-            declare
-               Field : constant String := Field_List (Before + 1 .. After - 1);
-               Space : constant Natural := Index (Source => Field,
-                                        Pattern => " ",
-                                        From    => Field'First);
-               Type_Name  : constant String := Field (Field'First .. Space - 1);
-               Field_Name : constant String := Field (Space + 1 .. Field'Last);
-            begin
-               IO.Put_Line (Spec_File, "      " & Field_Name & " : " & Type_Name & ";");
-            end;
-         end loop;
+         Iterate_Types (Field_List);
          IO.Put_Line (Spec_File, "   end record;");
       else
          IO.Put_Line (Spec_File, "null record;");
@@ -145,8 +134,18 @@ procedure Generate_Ast is
 
    procedure Define_Type (Spec_File, Body_File : IO.File_Type;
                           Base_Name, Class_Name, Field_List : String) is
-      pragma Unreferenced (Body_File, Field_List);
+      pragma Unreferenced (Body_File);
       use Ada.Strings.Fixed;
+
+      procedure Define_Accessor (Field_Name, Type_Name : String);
+
+      procedure Define_Accessor (Field_Name, Type_Name : String) is
+      begin
+         IO.Put_Line (Spec_File, "     function Get_" & Field_Name & " (Self : "
+             & Class_Name & ") return " & Type_Name & ";");
+      end Define_Accessor;
+
+      procedure Iterate_Accessors is new Iterate_Fields (Define_Accessor);
 
    begin
       IO.Put_Line (Spec_File, "");
@@ -155,6 +154,7 @@ procedure Generate_Ast is
       IO.Put_Line (Spec_File, "   type " & Class_Name & " is new " & Base_Name & " with private;");
 
       IO.Put_Line (Spec_File, "--    }");
+      Iterate_Accessors (Field_List);
    end Define_Type;
 
    procedure Define_Visitor (File : IO.File_Type; Base_Name : String; Types : String_Array) is
@@ -178,6 +178,35 @@ procedure Generate_Ast is
       IO.Put_Line (File, "   end Visitors;");
    end Define_Visitor;
 
+   procedure Iterate_Fields (List : String) is
+      use Ada.Strings.Fixed;
+      Before, After : Natural := List'First;
+   begin
+      while After < List'Last loop
+         Before := After;
+         After := Index (Source  => List,
+                         Pattern => ", ",
+                         From    => Before + 1);
+         if After = 0 then
+            After := List'Last + 1;
+         end if;
+         if Before = List'First then
+            Before := List'First - 1;
+         else -- at ","
+            Before := Before + 1; -- at " "
+         end if;
+         declare
+            Field : constant String := List (Before + 1 .. After - 1);
+            Space : constant Natural := Index (Source => Field,
+                                     Pattern => " ",
+                                     From    => Field'First);
+            Type_Name  : constant String := Field (Field'First .. Space - 1);
+            Field_Name : constant String := Field (Space + 1 .. Field'Last);
+         begin
+            Process_Field (Field_Name, Type_Name);
+         end;
+      end loop;
+   end Iterate_Fields;
    function Substring (Input, Separator : String; Item_Number : Positive) return String is
       use Ada.Strings.Fixed;
 

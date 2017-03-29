@@ -1,3 +1,6 @@
+with Exprs; use Exprs;
+
 package Storage is
-type Expr_Handle is new Natural;
+
+   function Retrieve (Handle : Expr_Handle) return Expr'Class;
 end;
