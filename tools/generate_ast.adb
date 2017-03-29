@@ -29,6 +29,10 @@ procedure Generate_Ast is
       IO.Create (File => Spec_File, Name => Spec_Path);
       IO.Create (File => Body_File, Name => Body_Path);
 
+      IO.Put_Line (Spec_File, "with L_Strings; use L_Strings;");
+      IO.Put_Line (Spec_File, "with Storage; use Storage;");
+      IO.Put_Line (Spec_File, "with Tokens; use Tokens;");
+      IO.New_Line (Spec_File);
       IO.Put_Line (Spec_File, "package " & Base_Name & "s is");
       IO.Put_Line (Body_File, "package body " & Base_Name & "s is");
       IO.Put_Line (Spec_File, "   type " & Base_Name & " is abstract tagged null record;");
@@ -88,18 +92,27 @@ procedure Generate_Ast is
             Before := After;
             After := Index (Source  => Field_List,
                             Pattern => ", ",
-                            From    => Before);
+                            From    => Before + 1);
+            if After = 0 then
+               After := Field_List'Last + 1;
+            end if;
+            if Before = Field_List'First then
+               Before := Field_List'First - 1;
+            else -- at ","
+               Before := Before + 1; -- at " "
+            end if;
             declare
                Field : constant String := Field_List (Before + 1 .. After - 1);
                Space : constant Natural := Index (Source => Field,
                                         Pattern => " ",
                                         From    => Field'First);
-               Name  : constant String := Field (Field'First .. Space - 1);
+               Type_Name  : constant String := Field (Field'First .. Space - 1);
+               Field_Name : constant String := Field (Space + 1 .. Field'Last);
             begin
-               IO.Put_Line (Spec_File, "      this." & Name & " = " & Name & ";");
+               IO.Put_Line (Spec_File, "      " & Field_Name & " : " & Type_Name & ";");
             end;
          end loop;
-         IO.Put_Line (Spec_File, "end record;");
+         IO.Put_Line (Spec_File, "   end record;");
       else
          IO.Put_Line (Spec_File, "null record;");
       end if;
@@ -175,7 +188,10 @@ procedure Generate_Ast is
          Before := After;
          After := Index (Source  => Input,
                          Pattern => Separator,
-                         From    => Before);
+                         From    => Before + 1);
+         if After = 0 then
+            After := Input'Last + 1;
+         end if;
       end loop;
       if Before > Input'First then
          return Trim (Input (Before + 1 .. After - 1), Ada.Strings.Both);
@@ -185,13 +201,21 @@ procedure Generate_Ast is
    end Substring;
 
    Spec_Binary : aliased constant String :=
-     "Binary   : Expr left, Token operator, Expr right";
+     "Binary   :Expr_Handle left, Token operator, Expr_Handle right";
    Spec_Grouping : aliased constant String :=
-     "Grouping : Expr expression";
-   Spec_Literal : aliased constant String :=
-     "Literal  : Object value";
+     "Grouping :Expr_Handle expression";
+   -- Unlike Bob's original code, Literal types are separate.
+   -- This avoids an indefinite type _inside_ Expr.
+   -- Expr'Class is handled in package Storage, and accessed via a simple ID.
+   -- Implementing this all over just to deal with different literal types is
+   -- overkill. Instead, use the existing infrastructure, i.e. create new types
+   -- deriving from Expr.
+   Spec_Num_Literal : aliased constant String :=
+     "Num_Literal  :Integer value";
+   Spec_Str_Literal : aliased constant String :=
+     "Str_Literal  :L_String value";
    Spec_Unary : aliased constant String :=
-     "Unary    : Token operator, Expr right";
+     "Unary    :Token operator, Expr_Handle right";
 
 begin
    if Command_Line.Argument_Count /= 1 then
@@ -203,7 +227,8 @@ begin
    Define_Ast (Command_Line.Argument (1), "Expr",
                String_Array'(Spec_Binary'Access,
                  Spec_Grouping'Access,
-                 Spec_Literal'Access,
+                 Spec_Num_Literal'Access,
+                 Spec_Str_Literal'Access,
                  Spec_Unary'Access));
 
 end Generate_Ast;
