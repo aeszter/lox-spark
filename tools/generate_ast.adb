@@ -61,7 +61,8 @@ procedure Generate_Ast is
       IO.New_Line (Spec_File);
       -- The base accept() method.
       IO.Put_Line (Spec_File, "--  abstract <R> R accept(Visitor<R> visitor);");
-      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : Expr; V : Visitors.Visitor'Class) is abstract;");
+      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : Expr; V : "
+                   & "in out Visitors.Visitor'Class) is abstract;");
 
       IO.Put_Line (Spec_File, "private");
       for The_Type of Types loop
@@ -119,9 +120,11 @@ procedure Generate_Ast is
       IO.Put_Line (Spec_File, "--      return visitor.visit" &
         Class_Name & Base_Name & "(this);");
       IO.Put_Line (Spec_File, "--    }");
-      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : " & Class_Name & "; V : Visitors.Visitor'Class);");
+      IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : "
+                   & Class_Name & "; V : in out Visitors.Visitor'Class);");
       IO.New_Line (Body_File);
-      IO.Put_Line (Body_File, "   overriding procedure Accept_Visitor (Self : " & Class_Name & "; V : Visitors.Visitor'Class) is");
+      IO.Put_Line (Body_File, "   overriding procedure Accept_Visitor (Self : "
+                   & Class_Name & "; V : in out Visitors.Visitor'Class) is");
       IO.Put_Line (Body_File, "   begin");
       IO.Put_Line (Body_File, "      V.Visit_" & Class_Name & "_" & Base_Name & " (Self);");
       IO.Put_Line (Body_File, "   end Accept_Visitor;");
@@ -134,15 +137,20 @@ procedure Generate_Ast is
 
    procedure Define_Type (Spec_File, Body_File : IO.File_Type;
                           Base_Name, Class_Name, Field_List : String) is
-      pragma Unreferenced (Body_File);
       use Ada.Strings.Fixed;
 
       procedure Define_Accessor (Field_Name, Type_Name : String);
 
       procedure Define_Accessor (Field_Name, Type_Name : String) is
       begin
-         IO.Put_Line (Spec_File, "     function Get_" & Field_Name & " (Self : "
-             & Class_Name & ") return " & Type_Name & ";");
+         IO.Put_Line (Spec_File, "   function Get_" & Field_Name & " (Self : "
+                      & Class_Name & ") return " & Type_Name & ";");
+         IO.New_Line (Body_File);
+         IO.Put_Line (Body_File, "   function Get_" & Field_Name & " (Self : "
+                      & Class_Name & ") return " & Type_Name & " is");
+         IO.Put_Line (Body_File, "   begin");
+         IO.Put_Line (Body_File, "      return Self." & Field_Name & ";");
+         IO.Put_Line (Body_File, "   end Get_" & Field_Name & ";");
       end Define_Accessor;
 
       procedure Iterate_Accessors is new Iterate_Fields (Define_Accessor);
@@ -168,7 +176,7 @@ procedure Generate_Ast is
             Type_Name : constant String  := Substring (The_Type.all, ":", 1);
          begin
             IO.Put_Line (File, "      procedure Visit_" & Type_Name & "_" & Base_Name &
-                           " (Self : Visitor; The_" & Base_Name &
+                           " (Self : in out Visitor; The_" & Base_Name &
                            " : " & Type_Name & ") is abstract;");
             IO.Put_Line (File, "--    R visit" & Type_Name & Base_Name & "(" &
                   Type_Name & " " & Ada.Characters.Handling.To_Lower (Base_Name) & ");");
