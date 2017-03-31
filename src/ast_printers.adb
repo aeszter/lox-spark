@@ -26,6 +26,11 @@ package body Ast_Printers is
       return "(group " & Print (Retrieve (The_Expr.Get_expression)) & ")";
    end Print;
 
+   function Print (The_Expr : Float_Literal) return String is
+   begin
+      return Float'Image (The_Expr.Get_value);
+   end Print;
+
    function Print (The_Expr : Num_Literal) return String is
    begin
       return Integer'Image (The_Expr.Get_value);
@@ -47,8 +52,8 @@ package body Ast_Printers is
    procedure Visit_Expr (V : in out Ast_Printer; The_Expr : Expr_Type);
 
    procedure Visit_Expr (V : in out Ast_Printer; The_Expr : Expr_Type) is
-      function Local_Print (The_Expr : Expr_Type) return String
-        renames Print;
+      function Local_Print (E : Expr_Type) return String
+        renames Print; -- resolve ambiguity
       Image : constant String := Local_Print (The_Expr);
    begin
       V.Image := To_Bounded_String (Image);
@@ -66,6 +71,11 @@ package body Ast_Printers is
    procedure visit_Grouping_Expr (Self : in out Ast_Printer; The_Expr : Grouping)
                                   renames Do_Visit_Grouping_Expr;
 
+   procedure Do_Visit_Float_Literal_Expr is new Visit_Expr (Float_Literal);
+
+   overriding
+   procedure visit_Float_Literal_Expr (Self : in out Ast_Printer; The_Expr : Float_Literal)
+                                     renames Do_Visit_Float_Literal_Expr;
    procedure Do_Visit_Num_Literal_Expr is new Visit_Expr (Num_Literal);
 
    overriding

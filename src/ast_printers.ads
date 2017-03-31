@@ -23,6 +23,9 @@ package Ast_Printers is
    procedure visit_Grouping_Expr (Self : in out Ast_Printer; The_Expr : Grouping);
 
    overriding
+   procedure visit_Float_Literal_Expr (Self : in out Ast_Printer; The_Expr : Float_Literal);
+
+   overriding
    procedure visit_Num_Literal_Expr (Self : in out Ast_Printer; The_Expr : Num_Literal);
 
    overriding
@@ -34,6 +37,7 @@ package Ast_Printers is
 private
    function Print (The_Expr : Binary) return String;
    function Print (The_Expr : Grouping) return String;
+   function Print (The_Expr : Float_Literal) return String;
    function Print (The_Expr : Num_Literal) return String;
    function Print (The_Expr : Str_Literal) return String;
    function Print (The_Expr : Unary) return String;

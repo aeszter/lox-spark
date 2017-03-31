@@ -249,6 +249,8 @@ procedure Generate_Ast is
    -- Implementing this all over just to deal with different literal types is
    -- overkill. Instead, use the existing infrastructure, i.e. create new types
    -- deriving from Expr.
+   Spec_Float_Literal : aliased constant String :=
+     "Float_Literal :Float value";
    Spec_Num_Literal : aliased constant String :=
      "Num_Literal  :Integer value";
    Spec_Str_Literal : aliased constant String :=
@@ -266,6 +268,7 @@ begin
    Define_Ast (Command_Line.Argument (1), "Expr",
                String_Array'(Spec_Binary'Access,
                  Spec_Grouping'Access,
+                 Spec_Float_Literal'Access,
                  Spec_Num_Literal'Access,
                  Spec_Str_Literal'Access,
                  Spec_Unary'Access));
