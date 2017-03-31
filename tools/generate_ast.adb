@@ -36,10 +36,12 @@ procedure Generate_Ast is
       IO.Put_Line (Spec_File, "with L_Strings; use L_Strings;");
       IO.Put_Line (Spec_File, "with Tokens; use Tokens;");
       IO.New_Line (Spec_File);
+      IO.Put_Line (Body_File, "with Storage;");
+      IO.New_Line (Body_File);
       IO.Put_Line (Spec_File, "package " & Base_Name & "s is");
       IO.Put_Line (Body_File, "package body " & Base_Name & "s is");
       IO.Put_Line (Spec_File, "   type " & Base_Name & " is abstract tagged null record;");
-      IO.Put_Line (Spec_File, "   type " & Base_Name & "_Handle is new Integer;");
+      IO.Put_Line (Spec_File, "   type " & Base_Name & "_Handle is new Positive;");
       -- The AST classes.
       for The_Type of Types loop
          declare
