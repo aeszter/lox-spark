@@ -20,7 +20,7 @@ procedure Generate_Ast is
    function Substring (Input, Separator : String; Item_Number : Positive) return String;
 
    generic
-      with procedure Process_Field (Field_Name, Type_Name : String);
+      with procedure Process_Field (Field_Name, Type_Name : String; Last : Boolean);
    procedure Iterate_Fields (List : String);
 
    procedure Define_Ast (Output_Dir, Base_Name : String; Types : String_Array) is
@@ -89,9 +89,10 @@ procedure Generate_Ast is
       pragma Unreferenced (Body_File);
       use Ada.Strings.Fixed;
 
-      procedure Define_One_Type (Field_Name, Type_Name : String);
+      procedure Define_One_Type (Field_Name, Type_Name : String; Last : Boolean);
 
-      procedure Define_One_Type (Field_Name, Type_Name : String) is
+      procedure Define_One_Type (Field_Name, Type_Name : String; Last : Boolean) is
+         pragma Unreferenced (Last);
       begin
          IO.Put_Line (Spec_File, "      " & Field_Name & " : " & Type_Name & ";");
       end Define_One_Type;
@@ -141,9 +142,13 @@ procedure Generate_Ast is
                           Base_Name, Class_Name, Field_List : String) is
       use Ada.Strings.Fixed;
 
-      procedure Define_Accessor (Field_Name, Type_Name : String);
+      procedure Define_Accessor (Field_Name, Type_Name : String; Last : Boolean);
+      procedure Define_Parameter_Body (Field_Name, Type_Name : String; Last : Boolean);
+      procedure Define_Parameter_Spec (Field_Name, Type_Name : String; Last : Boolean);
+      procedure Initialize_Field (Field_Name, Type_Name : String; Last : Boolean);
 
-      procedure Define_Accessor (Field_Name, Type_Name : String) is
+      procedure Define_Accessor (Field_Name, Type_Name : String; Last : Boolean) is
+         pragma Unreferenced (Last);
       begin
          IO.Put_Line (Spec_File, "   function Get_" & Field_Name & " (Self : "
                       & Class_Name & ") return " & Type_Name & ";");
@@ -155,7 +160,32 @@ procedure Generate_Ast is
          IO.Put_Line (Body_File, "   end Get_" & Field_Name & ";");
       end Define_Accessor;
 
+      procedure Define_Parameter_Body (Field_Name, Type_Name : String; Last : Boolean) is
+      begin
+         IO.Put (Body_File, "My_" & Field_Name & " : " & Type_Name);
+         if not Last then
+            IO.Put (Body_File, "; ");
+         end if;
+      end Define_Parameter_Body;
+
+      procedure Define_Parameter_Spec (Field_Name, Type_Name : String; Last : Boolean) is
+      begin
+         IO.Put (Spec_File, "My_" & Field_Name & " : " & Type_Name);
+         if not Last then
+            IO.Put (Spec_File, "; ");
+         end if;
+      end Define_Parameter_Spec;
+
+      procedure Initialize_Field (Field_Name, Type_Name : String; Last : Boolean) is
+         pragma Unreferenced (Type_Name, Last);
+      begin
+         IO.Put_Line (Body_File, "      E." & Field_Name & " := My_" & Field_Name & ";");
+      end Initialize_Field;
+
       procedure Iterate_Accessors is new Iterate_Fields (Define_Accessor);
+      procedure Iterate_Initialization is new Iterate_Fields (Initialize_Field);
+      procedure Iterate_Parameters_Body is new Iterate_Fields (Define_Parameter_Body);
+      procedure Iterate_Parameters_Spec is new Iterate_Fields (Define_Parameter_Spec);
 
    begin
       IO.Put_Line (Spec_File, "");
@@ -165,6 +195,25 @@ procedure Generate_Ast is
 
       IO.Put_Line (Spec_File, "--    }");
       Iterate_Accessors (Field_List);
+      IO.Put (Spec_File, "   function Create_" & Class_Name);
+
+      IO.New_Line (Body_File);
+      IO.Put (Body_File, "   function Create_" & Class_Name);
+      if Field_List'Length > 0 then
+         IO.Put (Spec_File, " (");
+         Iterate_Parameters_Spec (Field_List);
+         IO.Put (Spec_File, ")");
+         IO.Put (Body_File, " (");
+         Iterate_Parameters_Body (Field_List);
+         IO.Put (Body_File, ")");
+      end if;
+      IO.Put_Line (Spec_File, " return " & Base_Name & "_Handle;");
+      IO.Put_Line (Body_File, " return " & Base_Name & "_Handle is");
+      IO.Put_Line (Body_File, "      E : " & Class_Name & ";");
+      IO.Put_Line (Body_File, "   begin");
+      Iterate_Initialization (Field_List);
+      IO.Put_Line (Body_File, "      return Storage.Store (E);");
+      IO.Put_Line (Body_File, "   end Create_"  & Class_Name & ";");
    end Define_Type;
 
    procedure Define_Visitor (File : IO.File_Type; Base_Name : String; Types : String_Array) is
@@ -213,7 +262,7 @@ procedure Generate_Ast is
             Type_Name  : constant String := Field (Field'First .. Space - 1);
             Field_Name : constant String := Field (Space + 1 .. Field'Last);
          begin
-            Process_Field (Field_Name, Type_Name);
+            Process_Field (Field_Name, Type_Name, After > List'Last);
          end;
       end loop;
    end Iterate_Fields;
