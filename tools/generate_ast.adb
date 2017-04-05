@@ -5,7 +5,7 @@ with Ada.Strings.Fixed;
 with Ada.Characters;
 with Ada.Characters.Handling;
 
-procedure Generate_Ast is
+procedure Generate_Ast with SPARK_Mode => Off is
    package IO renames Ada.Text_IO;
    type String_Access is access constant String;
    type String_Array is array (Positive range <>) of String_Access;

@@ -4,7 +4,7 @@ with Exprs; use Exprs;
 with Storage;
 with Tokens; use Tokens;
 
-procedure Test_Ast is
+procedure Test_Ast with SPARK_Mode => Off is
    Test_Expr : Expr_Handle;
 begin
    Test_Expr := Create_Binary (Create_Unary (New_Token (T_MINUS, "-", 1),
