@@ -1,24 +1,33 @@
-with Ada.Containers.Formal_Indefinite_Vectors;
+package body Storage with SPARK_Mode,
+   Refined_State => (State => Container)
+is
 
-package body Storage is
+   use Back_Ends;
 
-   package Back_Ends is new Ada.Containers.Formal_Indefinite_Vectors
-     (Index_Type                   => Expr_Handle,
-      Element_Type                 => Expr'Class,
-      Max_Size_In_Storage_Elements => Binary'Size,
-      Bounded                      => False);
-
-   Container : Back_Ends.Vector := Back_Ends.Empty_Vector;
+   function Is_Valid (Handle : Expr_Handle) return Boolean with
+     Refined_Post => (if Is_Valid'Result then Handle in Back_Ends.First_Index (Container) .. Back_Ends.Last_Index (Container)) is
+   begin
+      return Handle in First_Index (Container) .. Last_Index (Container);
+   end Is_Valid;
 
    function Retrieve (Handle : Expr_Handle) return Expr'Class is
    begin
       return Back_Ends.Element (Container, Handle);
    end Retrieve;
 
-   function Store (The_Expr : Expr'Class) return Expr_Handle is
+   procedure Store (The_Expr : Expr'Class;
+                    Result   : out Expr_Handle;
+                    Success  : out Boolean) is
+      use Ada.Containers;
    begin
+      if Length (Container) >= Container.Capacity then
+         Success := False;
+         Result := 1;
+         return;
+      end if;
       Back_Ends.Append (Container, The_Expr);
-      return Back_Ends.Last_Index (Container);
+      Result := Back_Ends.Last_Index (Container);
+      Success := Is_Valid (Result);
    end Store;
 
 end Storage;
