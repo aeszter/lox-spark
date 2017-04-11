@@ -195,24 +195,19 @@ procedure Generate_Ast with SPARK_Mode => Off is
 
       IO.Put_Line (Spec_File, "--    }");
       Iterate_Accessors (Field_List);
-      IO.Put (Spec_File, "   function Create_" & Class_Name);
+      IO.Put (Spec_File, "   procedure Create_" & Class_Name & " (");
 
       IO.New_Line (Body_File);
-      IO.Put (Body_File, "   function Create_" & Class_Name);
-      if Field_List'Length > 0 then
-         IO.Put (Spec_File, " (");
-         Iterate_Parameters_Spec (Field_List);
-         IO.Put (Spec_File, ")");
-         IO.Put (Body_File, " (");
-         Iterate_Parameters_Body (Field_List);
-         IO.Put (Body_File, ")");
-      end if;
-      IO.Put_Line (Spec_File, " return " & Base_Name & "_Handle;");
-      IO.Put_Line (Body_File, " return " & Base_Name & "_Handle is");
-      IO.Put_Line (Body_File, "      E : " & Class_Name & ";");
+      IO.Put (Body_File, "   procedure Create_" & Class_Name & " (");
+      Iterate_Parameters_Spec (Field_List);
+      IO.Put_Line (Spec_File, "; Result : out " & Base_Name & "_Handle);");
+      Iterate_Parameters_Body (Field_List);
+      IO.Put_Line (Body_File, "; Result : out " & Base_Name & "_Handle) is");
+      IO.Put_Line (Body_File, "      E       : " & Class_Name & ";");
+      IO.Put_Line (Body_File, "      Success : Boolean;");
       IO.Put_Line (Body_File, "   begin");
       Iterate_Initialization (Field_List);
-      IO.Put_Line (Body_File, "      return Storage.Store (E);");
+      IO.Put_Line (Body_File, "      Storage.Store (E, Result, Success);");
       IO.Put_Line (Body_File, "   end Create_"  & Class_Name & ";");
    end Define_Type;
 

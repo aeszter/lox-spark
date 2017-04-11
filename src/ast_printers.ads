@@ -1,6 +1,7 @@
 with Exprs; use Exprs;
 use Exprs.Visitors;
 with L_Strings; use L_Strings;
+with Storage;
 
 package Ast_Printers is
    -- Creates an unambiguous, if ugly, string representation of AST nodes.
@@ -10,14 +11,15 @@ package Ast_Printers is
    -- cannot follow Bob's implementation
    type Ast_Printer is new Visitor with
       record
-         Image : L_String;
+         Image : L_String := To_Bounded_String ("");
       end record;
 
    function Print (V : Ast_Printer) return String;
    function Print (The_Expr : Expr'Class) return String;
 
    overriding
-   procedure visit_Binary_Expr (Self : in out Ast_Printer; The_Expr : Binary);
+   procedure visit_Binary_Expr (Self : in out Ast_Printer; The_Expr : Binary) with
+   Global => (input => Storage.State);
 
    overriding
    procedure visit_Grouping_Expr (Self : in out Ast_Printer; The_Expr : Grouping);
