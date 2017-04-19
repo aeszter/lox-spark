@@ -1,7 +1,6 @@
 with Exprs; use Exprs;
 use Exprs.Visitors;
 with L_Strings; use L_Strings;
-with Storage;
 
 package Ast_Printers is
    -- Creates an unambiguous, if ugly, string representation of AST nodes.
@@ -19,7 +18,7 @@ package Ast_Printers is
 
    overriding
    procedure visit_Binary_Expr (Self : in out Ast_Printer; The_Expr : Binary) with
-   Global => (input => Storage.State);
+   Global => (input => Exprs.State);
 
    overriding
    procedure visit_Grouping_Expr (Self : in out Ast_Printer; The_Expr : Grouping);

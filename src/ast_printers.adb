@@ -1,5 +1,3 @@
-with Storage; use Storage;
-
 package body Ast_Printers is
 
    function Print (The_Expr : Expr'Class) return String is
