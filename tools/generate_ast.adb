@@ -89,7 +89,14 @@ procedure Generate_Ast with SPARK_Mode => Off is
       IO.New_Line (Spec_File);
       -- The base accept() method.
       IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : Expr; V : "
-                   & "in out Visitors.Visitor'Class) is abstract;");
+                   & "in out Visitors.Visitor'Class) with "
+                   & "Global => (Input => State);");
+      IO.Put_Line (Body_File, "   procedure Accept_Visitor (Self : Expr; V : "
+                   & "in out Visitors.Visitor'Class) is ");
+      IO.Put_Line (Body_File, "   begin");
+      IO.Put_Line (Body_File, "      null; -- maybe raise an exception here");
+      IO.Put_Line (Body_File, "   end Accept_Visitor;");
+      IO.New_Line (Body_File);
 
       IO.Put_Line (Spec_File, "private");
       IO.Put_Line (Spec_File, "   type " & Base_Name & " is abstract tagged null record;");
@@ -173,7 +180,8 @@ procedure Generate_Ast with SPARK_Mode => Off is
       -- Visitor pattern.
       IO.New_Line (Spec_File);
       IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : "
-                   & Class_Name & "; V : in out Visitors.Visitor'Class);");
+                   & Class_Name & "; V : in out Visitors.Visitor'Class) with");
+      IO.Put_Line (Spec_File, "     Global => (Input => State);");
       IO.New_Line (Body_File);
       IO.Put_Line (Body_File, "   overriding procedure Accept_Visitor (Self : "
                    & Class_Name & "; V : in out Visitors.Visitor'Class) is");
@@ -264,7 +272,8 @@ procedure Generate_Ast with SPARK_Mode => Off is
          begin
             IO.Put_Line (Spec_File, "      procedure Visit_" & Type_Name & "_" & Base_Name &
                            " (Self : in out Visitor; The_" & Base_Name &
-                           " : " & Type_Name & ");");
+                           " : " & Type_Name & ") with");
+            IO.Put_Line (Spec_File, "        Global => (Input => Exprs.State);");
             IO.Put_Line (Body_File, "      procedure Visit_" & Type_Name & "_" & Base_Name &
                            " (Self : in out Visitor; The_" & Base_Name &
                            " : " & Type_Name & ") is");
