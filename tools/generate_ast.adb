@@ -108,6 +108,16 @@ procedure Generate_Ast with SPARK_Mode => Off is
       IO.Put_Line (Spec_File, "end " & Base_Name & "s;");
       IO.Close (Spec_File);
       pragma Unreferenced (Spec_File);
+      IO.Put_Line (Body_File, "begin");
+      for The_Type of Types loop
+         declare
+            Class_Name : constant String := Substring (The_Type.all, ":", 1);
+         begin
+            IO.Put_Line (Body_File, "   pragma Assert (" & Class_Name
+                         & "'Size <= Max_Element_Size, Integer'Image (" & Class_Name
+                        & "'Size) & "" > Max_Element_Size"");");
+         end;
+      end loop;
       IO.Put_Line (Body_File, "end " & Base_Name & "s;");
       IO.Close (Body_File);
       pragma Unreferenced (Body_File);
@@ -143,11 +153,11 @@ procedure Generate_Ast with SPARK_Mode => Off is
    procedure Define_Storage (Spec_File : IO.File_Type; Base_Name : String) is
       Handle_Name : constant String := Base_Name & "_Handle";
    begin
-      IO.Put_Line (Spec_File, "   Max_Element : constant Integer := 10;");
+      IO.Put_Line (Spec_File, "   Max_Element_Size : constant Natural := 2272;");
       IO.Put_Line (Spec_File, "   package Storage is new Ada.Containers.Formal_Indefinite_Vectors");
       IO.Put_Line (Spec_File, "        (Index_Type                   => " & Handle_Name & ",");
       IO.Put_Line (Spec_File, "         Element_Type                 => " & Base_Name & "'Class,");
-      IO.Put_Line (Spec_File, "         Max_Size_In_Storage_Elements => Max_Element);");
+      IO.Put_Line (Spec_File, "         Max_Size_In_Storage_Elements => Max_Element_Size);");
       IO.Put_Line (Spec_File, "      -- Should be Bounded => False, but that triggers a prover bug");
       IO.Put_Line (Spec_File, "      pragma Compile_Time_Warning (True, ""gnatprove bug workaround"");");
       IO.New_Line (Spec_File);

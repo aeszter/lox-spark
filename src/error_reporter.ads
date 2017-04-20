@@ -1,7 +1,7 @@
 with SPARK.Text_IO; use SPARK.Text_IO;
 
 package Error_Reporter with SPARK_Mode,
-  abstract_state => State,
+  Abstract_State => State,
   Initializes => State
 is
    pragma Elaborate_Body;

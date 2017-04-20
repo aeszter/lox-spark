@@ -5,10 +5,11 @@ project Lox is
    for Main use ("generate_ast.adb", "lox.adb", "test_ast.adb");
 
    package Builder is
-     for Global_Configuration_Pragmas use "spark.adc";
+      for Global_Configuration_Pragmas use "spark.adc";
    end Builder;
+
    package Compiler is
-      for Default_Switches ("ada") use ("-gnaty3biknOpStxe", "-gnatwa.oh", "-gnat12", "-gnatf", "-gnatyabBCehiklnoOprsStux", "-g", "-gnatVi");
+      for Default_Switches ("ada") use ("-gnaty3biknOpStxe", "-gnatwa.oh", "-gnat12", "-gnatf", "-gnatyabBCehiklnoOprsStux", "-g", "-gnatVi", "-gnata");
    end Compiler;
 
 end Lox;
