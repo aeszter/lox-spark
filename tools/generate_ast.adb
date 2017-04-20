@@ -88,7 +88,6 @@ procedure Generate_Ast with SPARK_Mode => Off is
       end loop;
       IO.New_Line (Spec_File);
       -- The base accept() method.
-      IO.Put_Line (Spec_File, "--  abstract <R> R accept(Visitor<R> visitor);");
       IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : Expr; V : "
                    & "in out Visitors.Visitor'Class) is abstract;");
 
@@ -173,10 +172,6 @@ procedure Generate_Ast with SPARK_Mode => Off is
    begin
       -- Visitor pattern.
       IO.New_Line (Spec_File);
-      IO.Put_Line (Spec_File, "--    <R> R accept(Visitor<R> visitor) {");
-      IO.Put_Line (Spec_File, "--      return visitor.visit" &
-        Class_Name & Base_Name & "(this);");
-      IO.Put_Line (Spec_File, "--    }");
       IO.Put_Line (Spec_File, "   procedure Accept_Visitor (Self : "
                    & Class_Name & "; V : in out Visitors.Visitor'Class);");
       IO.New_Line (Body_File);
@@ -185,11 +180,6 @@ procedure Generate_Ast with SPARK_Mode => Off is
       IO.Put_Line (Body_File, "   begin");
       IO.Put_Line (Body_File, "      V.Visit_" & Class_Name & "_" & Base_Name & " (Self);");
       IO.Put_Line (Body_File, "   end Accept_Visitor;");
-
-      -- Fields.
-      IO.New_Line (Spec_File);
-
-      IO.Put_Line (Spec_File, "--  }");
    end Define_Subprogram;
 
    procedure Define_Type (Spec_File, Body_File : IO.File_Type;
@@ -243,11 +233,8 @@ procedure Generate_Ast with SPARK_Mode => Off is
 
    begin
       IO.Put_Line (Spec_File, "");
-      IO.Put_Line (Spec_File, "--  static class " & Class_Name & " extends " &
-                     Base_Name & " {");
       IO.Put_Line (Spec_File, "   type " & Class_Name & " is new " & Base_Name & " with private;");
 
-      IO.Put_Line (Spec_File, "--    }");
       Iterate_Accessors (Field_List);
       IO.Put (Spec_File, "   procedure Create_" & Class_Name & " (");
 
@@ -269,7 +256,6 @@ procedure Generate_Ast with SPARK_Mode => Off is
    begin
       IO.Put_Line (Spec_File, "   package Visitors is");
       IO.Put_Line (Spec_File, "      type Visitor is tagged null record;");
-      IO.Put_Line (Spec_File, "--  interface Visitor<R> {");
       IO.Put_Line (Body_File, "   package body Visitors is");
 
       for The_Type of Types loop
@@ -279,8 +265,6 @@ procedure Generate_Ast with SPARK_Mode => Off is
             IO.Put_Line (Spec_File, "      procedure Visit_" & Type_Name & "_" & Base_Name &
                            " (Self : in out Visitor; The_" & Base_Name &
                            " : " & Type_Name & ");");
-            IO.Put_Line (Spec_File, "--    R visit" & Type_Name & Base_Name & "(" &
-                  Type_Name & " " & Ada.Characters.Handling.To_Lower (Base_Name) & ");");
             IO.Put_Line (Body_File, "      procedure Visit_" & Type_Name & "_" & Base_Name &
                            " (Self : in out Visitor; The_" & Base_Name &
                            " : " & Type_Name & ") is");
