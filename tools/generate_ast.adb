@@ -202,8 +202,14 @@ procedure Generate_Ast with SPARK_Mode => Off is
       procedure Define_Accessor (Field_Name, Type_Name : String; Last : Boolean) is
          pragma Unreferenced (Last);
       begin
-         IO.Put_Line (Spec_File, "   function Get_" & Field_Name & " (Self : "
-                      & Class_Name & ") return " & Type_Name & ";");
+         IO.Put (Spec_File, "   function Get_" & Field_Name & " (Self : "
+                 & Class_Name & ") return " & Type_Name);
+         if Type_Name = Base_Name & "_Handle" then
+            IO.Put_Line (Spec_File, " with");
+            IO.Put_Line (Spec_File, "     Post => Is_Valid (Get_" & Field_Name & "'Result);");
+         else
+            IO.Put_Line (Spec_File, ";");
+         end if;
          IO.New_Line (Body_File);
          IO.Put_Line (Body_File, "   function Get_" & Field_Name & " (Self : "
                       & Class_Name & ") return " & Type_Name & " is");
